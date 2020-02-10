@@ -115,6 +115,9 @@ class NN(object):
         for layer_n in range(1, self.n_hidden+1):
             cache[f"A{layer_n}"] = np.matmul(cache[f"Z{layer_n-1}"], self.weights[f"W{layer_n}"]) + self.weights[f"b{layer_n}"]
             cache[f"Z{layer_n}"] = self.activation(cache[f"A{layer_n}"])
+            print("cache[fA{layer_n}]", cache[f"A{layer_n}"])
+            print("cache[fZ{layer_n}]", cache[f"Z{layer_n}"])
+
         cache[f"A{self.n_hidden + 1}"] = np.matmul(cache[f"Z{self.n_hidden }"], self.weights[f"W{self.n_hidden+1}"]) \
                                          + self.weights[f"b{self.n_hidden+1}"]
         cache[f"Z{self.n_hidden + 1}"] = self.softmax(cache[f"A{self.n_hidden + 1}"])
@@ -203,6 +206,8 @@ class NN(object):
             X_valid, y_valid = self.valid
             valid_loss, valid_accuracy, _ = self.compute_loss_and_accuracy(X_valid, y_valid)
 
+            print("Epoch, train_accuracy, valid_accuracy, train_loss, valid_loss",
+                  epoch, train_accuracy, valid_accuracy, train_loss, valid_loss)
             self.train_logs['train_accuracy'].append(train_accuracy)
             self.train_logs['validation_accuracy'].append(valid_accuracy)
             self.train_logs['train_loss'].append(train_loss)
@@ -214,7 +219,3 @@ class NN(object):
         X_test, y_test = self.test
         test_loss, test_accuracy, _ = self.compute_loss_and_accuracy(X_test, y_test)
         return test_loss, test_accuracy
-
-#data = load_mnist()
-#nn = NN(data=data)
-#train_logs = nn.train_loop(5)
