@@ -128,19 +128,27 @@ class NN(object):
         # number of examples
         n = len(labels)
 
-        grads[f"dA{self.n_hidden + 1}"] = output - labels.T
-        grads[f"dW{self.n_hidden + 1}"] = (1. / n) * np.matmul(grads[f"dA{self.n_hidden + 1}"],
-                                                               cache[f"Z{self.n_hidden}"])
-        grads[f"db{self.n_hidden + 1}"] = (1. / n) * np.sum(grads[f"dA{self.n_hidden + 1}"], axis=1, keepdims=True)
+        grads[f"dA{self.n_hidden + 1}"] = output - labels
 
+        grads[f"dW{self.n_hidden + 1}"] = (1. / n) * \
+                                          np.sum(np.matmul(
+                                            np.expand_dims(cache[f"Z{self.n_hidden}"], axis=-1),
+                                            np.expand_dims(grads[f"dA{self.n_hidden + 1}"], axis=-2)
+                                          ), axis=0)
+        grads[f"db{self.n_hidden + 1}"] = (1. / n) * np.sum(grads[f"dA{self.n_hidden + 1}"], axis=0, keepdims=True)
 
         for layer_n in range(self.n_hidden, 0, -1):
-            grads[f"dZ{layer_n}"] = np.dot(self.weights[f"W{layer_n+1}"].T, grads[f"dA{layer_n+1}"])
+            grads[f"dZ{layer_n}"] = np.dot(grads[f"dA{layer_n+1}"], self.weights[f"W{layer_n+1}"].T)
+
             grads[f"dA{layer_n}"] = grads[f"dZ{layer_n}"] * \
                                            self.activation(cache[f"A{layer_n}"], grad=True)
 
-            grads[f"dW{layer_n}"] =(1. / n) * np.matmul(grads[f"dA{layer_n}"], cache[f"Z{layer_n - 1}"].T)
-            grads[f"db{layer_n}"] = (1. / n) * np.sum(grads[f"dA{layer_n}"], axis=1, keepdims=True)
+            grads[f"dW{layer_n}"] =(1. / n) * \
+                                   np.sum(np.matmul(
+                np.expand_dims(cache[f"Z{layer_n - 1}"], axis=-1),
+                np.expand_dims(grads[f"dA{layer_n}"], axis=-2),
+                                   ), axis=0)
+            grads[f"db{layer_n}"] = (1. / n) * np.sum(grads[f"dA{layer_n}"], axis=0, keepdims=True)
 
         return grads
 
@@ -158,9 +166,8 @@ class NN(object):
     def loss(self, prediction, labels):
         prediction[np.where(prediction < self.epsilon)] = self.epsilon
         prediction[np.where(prediction > 1 - self.epsilon)] = 1 - self.epsilon
-        # WRITE CODE HERE
-        pass
-        return 0
+        loss = np.mean(- np.sum(labels * np.log(prediction), axis=1))
+        return loss
 
     def compute_loss_and_accuracy(self, X, y):
         one_y = y
@@ -183,8 +190,13 @@ class NN(object):
             for batch in range(n_batches):
                 minibatchX = X_train[self.batch_size * batch:self.batch_size * (batch + 1), :]
                 minibatchY = y_onehot[self.batch_size * batch:self.batch_size * (batch + 1), :]
-                # WRITE CODE HERE
-                pass
+
+                # Forward
+                cache = self.forward(minibatchX)
+                # Backward
+                grads = self.backward(cache, minibatchY)
+                # Update
+                self.update(grads)
 
             X_train, y_train = self.train
             train_loss, train_accuracy, _ = self.compute_loss_and_accuracy(X_train, y_train)
@@ -202,3 +214,7 @@ class NN(object):
         X_test, y_test = self.test
         test_loss, test_accuracy, _ = self.compute_loss_and_accuracy(X_test, y_test)
         return test_loss, test_accuracy
+
+#data = load_mnist()
+#nn = NN(data=data)
+#train_logs = nn.train_loop(5)
