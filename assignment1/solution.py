@@ -10,18 +10,16 @@ def load_mnist():
     train_data, val_data, test_data = pickle.load(data_file, encoding="latin1")
     data_file.close()
 
+    print("max(train_data[0]) ", np.max(train_data[0]))
     train_inputs = [np.reshape(x, (784, 1)) for x in train_data[0]]
-    train_inputs = [x/255 for x in train_inputs]
     train_results = [one_hot(y, 10) for y in train_data[1]]
     train_data = np.array(train_inputs).reshape(-1, 784), np.array(train_results).reshape(-1, 10)
 
     val_inputs = [np.reshape(x, (784, 1)) for x in val_data[0]]
-    val_inputs = [x/255 for x in val_inputs]
     val_results = [one_hot(y, 10) for y in val_data[1]]
     val_data = np.array(val_inputs).reshape(-1, 784), np.array(val_results).reshape(-1, 10)
 
     test_inputs = [np.reshape(x, (784, 1)) for x in test_data[0]]
-    test_inputs = [x/255 for x in test_inputs]
     test_data = list(zip(test_inputs, test_data[1]))
 
     return train_data, val_data, test_data
@@ -102,9 +100,9 @@ class NN(object):
 
     def softmax(self, x):
         # Remember that softmax(x-C) = softmax(x) when C is a constant.
-        e_x = np.exp(x - np.max(x))
-        if len(x.shape) > 1\
-                :
+        #e_x = np.exp(x - np.max(x))
+        e_x = np.exp(x - np.max(x, axis=1, keepdims=True))
+        if len(x.shape) > 1:
             return e_x / e_x.sum(axis=1, keepdims=True)
         else:
             return e_x / e_x.sum(axis=0, keepdims=True)
@@ -116,14 +114,36 @@ class NN(object):
         for layer_n in range(1, self.n_hidden+1):
             cache[f"A{layer_n}"] = np.matmul(cache[f"Z{layer_n-1}"], self.weights[f"W{layer_n}"]) + self.weights[f"b{layer_n}"]
             cache[f"Z{layer_n}"] = self.activation(cache[f"A{layer_n}"])
-            #print("cache[fA{layer_n}]", cache[f"A{layer_n}"])
-            #print("cache[fZ{layer_n}]", cache[f"Z{layer_n}"])
-            #print("layer_n", layer_n)
+            """
+            print("layer_n", layer_n)
+            print("cache[fZ{layer_n-1}] ", cache[f"Z{layer_n-1}"][0])
+            print("self.weights[fW{layer_n}] ", self.weights[f"W{layer_n}"][0])
+            print("self.weights[fb{layer_n}] ", self.weights[f"b{layer_n}"][0])
+            print("cache[fA{layer_n}]", cache[f"A{layer_n}"][0])
+            print("cache[fZ{layer_n}]", cache[f"Z{layer_n}"][0])
+            """
             assert not np.any(np.isnan(self.weights[f"W{layer_n}"]))
+            assert not np.any(np.isnan(self.weights[f"b{layer_n}"]))
+            assert not np.any(np.isnan(cache[f"A{layer_n}"]))
+            assert not np.any(np.isnan(cache[f"Z{layer_n}"]))
+
 
         cache[f"A{self.n_hidden + 1}"] = np.matmul(cache[f"Z{self.n_hidden }"], self.weights[f"W{self.n_hidden+1}"]) \
                                          + self.weights[f"b{self.n_hidden+1}"]
         cache[f"Z{self.n_hidden + 1}"] = self.softmax(cache[f"A{self.n_hidden + 1}"])
+        """
+        print("output layer")
+        print("cache[fZ{self.n_hidden + 1}] ", cache[f"Z{self.n_hidden}"][0])
+        print("self.weights[fW{self.n_hidden + 1}] ", self.weights[f"W{self.n_hidden + 1}"][0])
+        print("self.weights[fb{self.n_hidden + 1}] ", self.weights[f"b{self.n_hidden + 1}"][0])
+        print("cache[fA{self.n_hidden + 1}]", cache[f"A{self.n_hidden + 1}"])
+        print("cache[fZ{self.n_hidden + 1}]", cache[f"Z{self.n_hidden + 1}"])
+        """
+        assert not np.any(np.isnan(self.weights[f"W{self.n_hidden + 1}"]))
+        assert not np.any(np.isnan(self.weights[f"b{self.n_hidden + 1}"]))
+        assert not np.any(np.isnan(cache[f"A{self.n_hidden + 1}"]))
+        assert not np.any(np.isnan(cache[f"Z{self.n_hidden + 1}"]))
+
         return cache
 
     def backward(self, cache, labels):
@@ -191,12 +211,10 @@ class NN(object):
         self.initialize_weights(dims)
 
         n_batches = int(np.ceil(X_train.shape[0] / self.batch_size))
-
         for epoch in range(n_epochs):
             for batch in range(n_batches):
                 minibatchX = X_train[self.batch_size * batch:self.batch_size * (batch + 1), :]
                 minibatchY = y_onehot[self.batch_size * batch:self.batch_size * (batch + 1), :]
-
                 # Forward
                 cache = self.forward(minibatchX)
                 # Backward
