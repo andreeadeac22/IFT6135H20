@@ -11,14 +11,17 @@ def load_mnist():
     data_file.close()
 
     train_inputs = [np.reshape(x, (784, 1)) for x in train_data[0]]
+    train_inputs = [x/255 for x in train_inputs]
     train_results = [one_hot(y, 10) for y in train_data[1]]
     train_data = np.array(train_inputs).reshape(-1, 784), np.array(train_results).reshape(-1, 10)
 
     val_inputs = [np.reshape(x, (784, 1)) for x in val_data[0]]
+    val_inputs = [x/255 for x in val_inputs]
     val_results = [one_hot(y, 10) for y in val_data[1]]
     val_data = np.array(val_inputs).reshape(-1, 784), np.array(val_results).reshape(-1, 10)
 
     test_inputs = [np.reshape(x, (784, 1)) for x in test_data[0]]
+    test_inputs = [x/255 for x in test_inputs]
     test_data = list(zip(test_inputs, test_data[1]))
 
     return train_data, val_data, test_data
@@ -77,14 +80,12 @@ class NN(object):
 
     def sigmoid(self, x, grad=False):
         if grad:
-            return (1/1+np.exp(-x))*(1-1/1+np.exp(-x))
-            pass
-        return 1/1+np.exp(-x)
+            return (1.0/(1.0+np.exp(-x)))*(1.0-1.0/(1.0+np.exp(-x)))
+        return 1.0/(1.0+np.exp(-x))
 
     def tanh(self, x, grad=False):
         if grad:
             return 1-(np.tanh(x)*np.tanh(x))
-            pass
         return np.tanh(x)
 
     def activation(self, x, grad=False):
@@ -115,8 +116,10 @@ class NN(object):
         for layer_n in range(1, self.n_hidden+1):
             cache[f"A{layer_n}"] = np.matmul(cache[f"Z{layer_n-1}"], self.weights[f"W{layer_n}"]) + self.weights[f"b{layer_n}"]
             cache[f"Z{layer_n}"] = self.activation(cache[f"A{layer_n}"])
-            print("cache[fA{layer_n}]", cache[f"A{layer_n}"])
-            print("cache[fZ{layer_n}]", cache[f"Z{layer_n}"])
+            #print("cache[fA{layer_n}]", cache[f"A{layer_n}"])
+            #print("cache[fZ{layer_n}]", cache[f"Z{layer_n}"])
+            #print("layer_n", layer_n)
+            assert not np.any(np.isnan(self.weights[f"W{layer_n}"]))
 
         cache[f"A{self.n_hidden + 1}"] = np.matmul(cache[f"Z{self.n_hidden }"], self.weights[f"W{self.n_hidden+1}"]) \
                                          + self.weights[f"b{self.n_hidden+1}"]

@@ -39,6 +39,8 @@ class SuperNN(NN):
         for layer_n in range(1, self.n_hidden + 2):
             self.weights[f"W{layer_n}"] = np.random.normal(0, 1, (all_dims[layer_n - 1], all_dims[layer_n]))
             self.weights[f"b{layer_n}"] = np.zeros((1, all_dims[layer_n]))
+            #print("self.weights[fW{layer_n}]" , self.weights[f"W{layer_n}"])
+            assert not np.any(np.isnan(self.weights[f"W{layer_n}"]))
 
     def plot(self):
         zero_init_train_loss = [2.302421418707069, 2.302274667119889, 2.3021431184461356, 2.3020252225102973,
@@ -56,9 +58,11 @@ class SuperNN(NN):
         plt.ylabel('training loss')
         plt.title('Average training loss using different weight initializations')
         plt.legend()
-        plt.savefig('intializations_.jpg')
+        plt.savefig('initializations.jpg')
 
 data = load_mnist()
-nn = SuperNN(data=data)
+#print("hidden_dims=(512, 256), batch_size= 128, data=data")
+#nn = SuperNN(hidden_dims=(512, 256), batch_size= 128, data=data)
+nn= SuperNN(data=data)
 train_logs = nn.train_loop(10)
 #nn.plot()
