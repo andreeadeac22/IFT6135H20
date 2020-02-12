@@ -59,7 +59,7 @@ class NN(object):
             self.train, self.valid, self.test = data
 
 
-    def initialize_weights(self, dims):        
+    def initialize_weights(self, dims):
         if self.seed is not None:
             np.random.seed(self.seed)
 
@@ -108,13 +108,24 @@ class NN(object):
             e_x = np.exp(x - np.max(x, axis=0, keepdims=True))
             return e_x / e_x.sum(axis=0, keepdims=True)
 
-    def forward(self, x):
+    def forward(self, x, weights, print_flag=False, i=0, j=0):
         cache = {"Z0": x}
         # cache is a dictionary with keys Z0, A0, ..., Zm, Am where m - 1 is the number of hidden layers
         # Ai corresponds to the preactivation at layer i, Zi corresponds to the activation at layer i
         for layer_n in range(1, self.n_hidden+1):
-            cache[f"A{layer_n}"] = np.matmul(cache[f"Z{layer_n-1}"], self.weights[f"W{layer_n}"]) + self.weights[f"b{layer_n}"]
+
+            cache[f"A{layer_n}"] = np.matmul(cache[f"Z{layer_n-1}"], weights[f"W{layer_n}"]) + weights[f"b{layer_n}"]
             cache[f"Z{layer_n}"] = self.activation(cache[f"A{layer_n}"])
+
+            """
+            if print_flag:
+                if layer_n == 2:
+                    print("weights[fW{layer_n}][:10] ", weights[f"W{layer_n}"][i][j])
+                    print("cache[fZ{layer_n-1}]", cache[f"Z{layer_n-1}"])
+                    print("cache[fA{layer_n}] ", cache[f"A{layer_n}"])
+                    print("cache[fZ{layer_n}] ", cache[f"Z{layer_n}"])
+            """
+
             """
             print("layer_n", layer_n)
             print("cache[fZ{layer_n-1}] ", cache[f"Z{layer_n-1}"][0])
@@ -123,14 +134,14 @@ class NN(object):
             print("cache[fA{layer_n}]", cache[f"A{layer_n}"][0])
             print("cache[fZ{layer_n}]", cache[f"Z{layer_n}"][0])
             """
-            assert not np.any(np.isnan(self.weights[f"W{layer_n}"]))
-            assert not np.any(np.isnan(self.weights[f"b{layer_n}"]))
+            assert not np.any(np.isnan(weights[f"W{layer_n}"]))
+            assert not np.any(np.isnan(weights[f"b{layer_n}"]))
             assert not np.any(np.isnan(cache[f"A{layer_n}"]))
             assert not np.any(np.isnan(cache[f"Z{layer_n}"]))
 
 
-        cache[f"A{self.n_hidden + 1}"] = np.matmul(cache[f"Z{self.n_hidden }"], self.weights[f"W{self.n_hidden+1}"]) \
-                                         + self.weights[f"b{self.n_hidden+1}"]
+        cache[f"A{self.n_hidden + 1}"] = np.matmul(cache[f"Z{self.n_hidden }"], weights[f"W{self.n_hidden+1}"]) \
+                                         + weights[f"b{self.n_hidden+1}"]
         cache[f"Z{self.n_hidden + 1}"] = self.softmax(cache[f"A{self.n_hidden + 1}"])
         """
         print("output layer")
@@ -140,12 +151,12 @@ class NN(object):
         print("cache[fA{self.n_hidden + 1}]", cache[f"A{self.n_hidden + 1}"])
         print("cache[fZ{self.n_hidden + 1}]", cache[f"Z{self.n_hidden + 1}"])
         """
-        assert not np.any(np.isnan(self.weights[f"W{self.n_hidden + 1}"]))
-        assert not np.any(np.isnan(self.weights[f"b{self.n_hidden + 1}"]))
+        assert not np.any(np.isnan(weights[f"W{self.n_hidden + 1}"]))
+        assert not np.any(np.isnan(weights[f"b{self.n_hidden + 1}"]))
         assert not np.any(np.isnan(cache[f"A{self.n_hidden + 1}"]))
         assert not np.any(np.isnan(cache[f"Z{self.n_hidden + 1}"]))
 
-        return cache
+        return cache[f"Z{self.n_hidden + 1}"], cache
 
     def backward(self, cache, labels):
         output = cache[f"Z{self.n_hidden + 1}"]
@@ -199,7 +210,7 @@ class NN(object):
     def compute_loss_and_accuracy(self, X, y):
         one_y = y
         y = np.argmax(y, axis=1)  # Change y to integers
-        cache = self.forward(X)
+        _, cache = self.forward(X, self.weights)
         predictions = np.argmax(cache[f"Z{self.n_hidden + 1}"], axis=1)
         accuracy = np.mean(y == predictions)
         loss = self.loss(cache[f"Z{self.n_hidden + 1}"], one_y)
@@ -210,14 +221,14 @@ class NN(object):
         y_onehot = y_train
         dims = [X_train.shape[1], y_onehot.shape[1]]
         self.initialize_weights(dims)
-
+        """
         n_batches = int(np.ceil(X_train.shape[0] / self.batch_size))
         for epoch in range(n_epochs):
             for batch in range(n_batches):
                 minibatchX = X_train[self.batch_size * batch:self.batch_size * (batch + 1), :]
                 minibatchY = y_onehot[self.batch_size * batch:self.batch_size * (batch + 1), :]
                 # Forward
-                cache = self.forward(minibatchX)
+                _, cache = self.forward(minibatchX, self.weights)
                 # Backward
                 grads = self.backward(cache, minibatchY)
                 # Update
@@ -234,6 +245,70 @@ class NN(object):
             self.train_logs['validation_accuracy'].append(valid_accuracy)
             self.train_logs['train_loss'].append(train_loss)
             self.train_logs['validation_loss'].append(valid_loss)
+        """
+
+
+        X_train, y_train = self.train
+        y = y_train[1]
+        x = X_train[1]
+        #print("x ", x.shape)
+        #print(x)
+        #print(y)
+        for epoch in range(n_epochs):
+            predictions, cache = self.forward(x, self.weights)
+            # Backward
+            grads = self.backward(cache, y)
+            # Update
+            self.update(grads)
+            print("Loss ", self.loss(predictions, y))
+
+        _, cache = self.forward(x, self.weights)
+        grads = self.backward(cache, y)
+        N_values = [k * 10 ** i for i in range(0, 5) for k in range(1, 6)]
+        print(len(N_values))
+        layer = 2
+        max_diff = []
+        for N in N_values:
+            print("N = ", N)
+            eps = 1.0 / N
+            delta = []
+            weights = self.weights
+            for i, (W, dW) in enumerate(zip(weights["W" + str(layer)], grads["dW" + str(layer)])):
+                for j, (w, dw) in enumerate(zip(W, dW)):
+                    #print("i, j ", i, j)
+                    #print("w, dw ", w, dw)
+                    if i > 10:
+                        break
+                    #print("weights[W + str(layer)][i][j] ", weights["W" + str(layer)][i][j])
+                    weights["W" + str(layer)][i][j] = w + eps
+                    #print("weights[W + str(layer)][i][j] ", weights["W" + str(layer)][i][j])
+
+                    output1, _ = self.forward(x, weights, print_flag=True, i=i, j=j)
+                    #print("output1 ", output1)
+                    loss1 = self.loss(output1, y)
+                    #print("loss1 ", loss1)
+
+                    #print("weights[W + str(layer)][i][j] ", weights["W" + str(layer)][i][j])
+                    weights["W" + str(layer)][i][j] = w - eps
+                    #print("weights[W + str(layer)][i][j] ", weights["W" + str(layer)][i][j])
+
+                    output2, _ = self.forward(x, weights, print_flag=True, i=i, j=j)
+                    #print("output2 ", output2)
+
+                    loss2 = self.loss(output2, y)
+                    #print("loss2 ", loss2)
+
+                    #print("weights[W + str(layer)][i][j] ", weights["W" + str(layer)][i][j])
+                    weights["W" + str(layer)][i][j] = w
+                    #print("weights[W + str(layer)][i][j] ", weights["W" + str(layer)][i][j])
+
+                    est_grad = (loss1 - loss2) / (2 * eps)
+                    #print("est_grad ", est_grad)
+
+                    #print("abs(est_grad - dw) ", abs(est_grad - dw))
+                    delta.append(abs(est_grad - dw))
+            max_diff.append(np.max(delta))
+            print("Max diff ", max_diff)
 
         return self.train_logs
 
@@ -241,3 +316,8 @@ class NN(object):
         X_test, y_test = self.test
         test_loss, test_accuracy, _ = self.compute_loss_and_accuracy(X_test, y_test)
         return test_loss, test_accuracy
+
+data = load_mnist()
+
+nn = NN(hidden_dims=(512,512), lr=0.01, batch_size=16, data=data)
+train_logs  = nn.train_loop(10)
