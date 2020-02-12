@@ -141,24 +141,28 @@ def plot():
     cnn_train_loss = [0.0527, 0.0312, 0.0232, 0.0188, 0.0157, 0.0143, 0.0108, 0.0078, 0.0196, 0.0069]
     cnn_val_loss = [0.0573, 0.0460, 0.0396, 0.0443, 0.0485, 0.0518, 0.0448, 0.0432, 0.0539, 0.0467]
 
+    """
     mlp_train_loss = [0.28153537862947453, 0.20143843526836797, 0.15624305943113298, 0.12668418587895094,
                       0.10554932123361933, 0.08997433320011995, 0.0776907221059160, 0.0678381166880755,
                       0.059775911369792066, 0.05302756704624103]
     mlp_val_loss = [0.2595818258216654, 0.1924245873136336, 0.15549514070045584, 0.13261075078818138,
                     0.11730770919579483, 0.10693320238744197, 0.09922512335869743,
                     0.09333125136136562, 0.0887679412296058, 0.08512650380991808]
+    """
+    dropout_cnn_train_loss = [0.0717, 0.0474, 0.0281, 0.0215, 0.0216, 0.0199, 0.0117, 0.0127, 0.0111, 0.0121]
+    dropout_cnn_val_loss = [0.0694, 0.0528, 0.0439, 0.0394, 0.0378, 0.0382, 0.0300, 0.0344, 0.0394, 0.0317]
 
     plt.figure()
     plt.plot(range(10), cnn_train_loss, 'b', label='CNN train')
     plt.plot(range(10), cnn_val_loss, 'r', label='CNN val')
-    plt.plot(range(10), mlp_train_loss, 'g', label='MLP train')
-    plt.plot(range(10), mlp_val_loss, 'k', label='MLP valid')
+    plt.plot(range(10), dropout_cnn_train_loss, 'g', label='DropoutCNN train')
+    plt.plot(range(10), dropout_cnn_val_loss, 'k', label='DropoutCNN valid')
 
     plt.xlabel('epoch')
     plt.ylabel('loss')
-    plt.title('Average training and validation loss for CNN and MLP')
+    plt.title('Average training and validation loss for Vanilla-CNN and Dropout-CNN')
     plt.legend()
-    plt.savefig('cnn_mlp.jpg')
+    plt.savefig('cnn_drop.jpg')
 
 
 

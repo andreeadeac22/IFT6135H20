@@ -249,8 +249,8 @@ class NN(object):
 
 
         X_train, y_train = self.train
-        y = y_train[1]
-        x = X_train[1]
+        y = y_train[2]
+        x = X_train[2]
         #print("x ", x.shape)
         #print(x)
         #print(y)
@@ -269,11 +269,10 @@ class NN(object):
         layer = 2
         max_diff = []
         for N in N_values:
-            print("N = ", N)
             eps = 1.0 / N
             delta = []
             weights = self.weights
-            for i, (W, dW) in enumerate(zip(weights["W" + str(layer)], grads["dW" + str(layer)])):
+            for i, (W, dW) in enumerate(zip(self.weights["W" + str(layer)], grads["dW" + str(layer)])):
                 for j, (w, dw) in enumerate(zip(W, dW)):
                     #print("i, j ", i, j)
                     #print("w, dw ", w, dw)
@@ -308,7 +307,7 @@ class NN(object):
                     #print("abs(est_grad - dw) ", abs(est_grad - dw))
                     delta.append(abs(est_grad - dw))
             max_diff.append(np.max(delta))
-            print("Max diff ", max_diff)
+            print("N, Max diff ", N, np.max(delta))
 
         return self.train_logs
 
