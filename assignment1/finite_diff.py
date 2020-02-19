@@ -1,6 +1,7 @@
 import pickle
 import numpy as np
 import gzip
+import matplotlib.pyplot as plt
 
 def one_hot(y, n_classes=10):
     return np.eye(n_classes)[y]
@@ -108,13 +109,14 @@ class NN(object):
             e_x = np.exp(x - np.max(x, axis=0, keepdims=True))
             return e_x / e_x.sum(axis=0, keepdims=True)
 
-    def forward(self, x, weights, print_flag=False, i=0, j=0):
+    def forward(self, x, print_flag=False, i=0, j=0):
         cache = {"Z0": x}
         # cache is a dictionary with keys Z0, A0, ..., Zm, Am where m - 1 is the number of hidden layers
         # Ai corresponds to the preactivation at layer i, Zi corresponds to the activation at layer i
+
         for layer_n in range(1, self.n_hidden+1):
 
-            cache[f"A{layer_n}"] = np.matmul(cache[f"Z{layer_n-1}"], weights[f"W{layer_n}"]) + weights[f"b{layer_n}"]
+            cache[f"A{layer_n}"] = np.matmul(cache[f"Z{layer_n-1}"], self.weights[f"W{layer_n}"]) + self.weights[f"b{layer_n}"]
             cache[f"Z{layer_n}"] = self.activation(cache[f"A{layer_n}"])
 
             """
@@ -134,14 +136,14 @@ class NN(object):
             print("cache[fA{layer_n}]", cache[f"A{layer_n}"][0])
             print("cache[fZ{layer_n}]", cache[f"Z{layer_n}"][0])
             """
-            assert not np.any(np.isnan(weights[f"W{layer_n}"]))
-            assert not np.any(np.isnan(weights[f"b{layer_n}"]))
+            assert not np.any(np.isnan(self.weights[f"W{layer_n}"]))
+            assert not np.any(np.isnan(self.weights[f"b{layer_n}"]))
             assert not np.any(np.isnan(cache[f"A{layer_n}"]))
             assert not np.any(np.isnan(cache[f"Z{layer_n}"]))
 
 
-        cache[f"A{self.n_hidden + 1}"] = np.matmul(cache[f"Z{self.n_hidden }"], weights[f"W{self.n_hidden+1}"]) \
-                                         + weights[f"b{self.n_hidden+1}"]
+        cache[f"A{self.n_hidden + 1}"] = np.matmul(cache[f"Z{self.n_hidden }"], self.weights[f"W{self.n_hidden+1}"]) \
+                                         + self.weights[f"b{self.n_hidden+1}"]
         cache[f"Z{self.n_hidden + 1}"] = self.softmax(cache[f"A{self.n_hidden + 1}"])
         """
         print("output layer")
@@ -151,8 +153,8 @@ class NN(object):
         print("cache[fA{self.n_hidden + 1}]", cache[f"A{self.n_hidden + 1}"])
         print("cache[fZ{self.n_hidden + 1}]", cache[f"Z{self.n_hidden + 1}"])
         """
-        assert not np.any(np.isnan(weights[f"W{self.n_hidden + 1}"]))
-        assert not np.any(np.isnan(weights[f"b{self.n_hidden + 1}"]))
+        assert not np.any(np.isnan(self.weights[f"W{self.n_hidden + 1}"]))
+        assert not np.any(np.isnan(self.weights[f"b{self.n_hidden + 1}"]))
         assert not np.any(np.isnan(cache[f"A{self.n_hidden + 1}"]))
         assert not np.any(np.isnan(cache[f"Z{self.n_hidden + 1}"]))
 
@@ -186,6 +188,7 @@ class NN(object):
                 np.expand_dims(cache[f"Z{layer_n - 1}"], axis=-1),
                 np.expand_dims(grads[f"dA{layer_n}"], axis=-2),
                                    ), axis=0)
+
             grads[f"db{layer_n}"] = (1. / n) * np.sum(grads[f"dA{layer_n}"], axis=0, keepdims=True)
 
         return grads
@@ -210,7 +213,7 @@ class NN(object):
     def compute_loss_and_accuracy(self, X, y):
         one_y = y
         y = np.argmax(y, axis=1)  # Change y to integers
-        _, cache = self.forward(X, self.weights)
+        _, cache = self.forward(X)
         predictions = np.argmax(cache[f"Z{self.n_hidden + 1}"], axis=1)
         accuracy = np.mean(y == predictions)
         loss = self.loss(cache[f"Z{self.n_hidden + 1}"], one_y)
@@ -221,90 +224,47 @@ class NN(object):
         y_onehot = y_train
         dims = [X_train.shape[1], y_onehot.shape[1]]
         self.initialize_weights(dims)
-        """
-        n_batches = int(np.ceil(X_train.shape[0] / self.batch_size))
+
+        rnd_example = X_train[2:3]
+        rnd_label = y_train[2:3]
+
         for epoch in range(n_epochs):
-            for batch in range(n_batches):
-                minibatchX = X_train[self.batch_size * batch:self.batch_size * (batch + 1), :]
-                minibatchY = y_onehot[self.batch_size * batch:self.batch_size * (batch + 1), :]
-                # Forward
-                _, cache = self.forward(minibatchX, self.weights)
-                # Backward
-                grads = self.backward(cache, minibatchY)
-                # Update
-                self.update(grads)
-
-            X_train, y_train = self.train
-            train_loss, train_accuracy, _ = self.compute_loss_and_accuracy(X_train, y_train)
-            X_valid, y_valid = self.valid
-            valid_loss, valid_accuracy, _ = self.compute_loss_and_accuracy(X_valid, y_valid)
-
-            print("Epoch, train_accuracy, valid_accuracy, train_loss, valid_loss",
-                  epoch, train_accuracy, valid_accuracy, train_loss, valid_loss)
-            self.train_logs['train_accuracy'].append(train_accuracy)
-            self.train_logs['validation_accuracy'].append(valid_accuracy)
-            self.train_logs['train_loss'].append(train_loss)
-            self.train_logs['validation_loss'].append(valid_loss)
-        """
-
-
-        X_train, y_train = self.train
-        y = y_train[2]
-        x = X_train[2]
-        #print("x ", x.shape)
-        #print(x)
-        #print(y)
-        for epoch in range(n_epochs):
-            predictions, cache = self.forward(x, self.weights)
+            predictions, cache = self.forward(rnd_example)
             # Backward
-            grads = self.backward(cache, y)
+            grads = self.backward(cache, rnd_label)
             # Update
             self.update(grads)
-            print("Loss ", self.loss(predictions, y))
+            print("Loss ", self.loss(predictions, rnd_label))
 
-        _, cache = self.forward(x, self.weights)
-        grads = self.backward(cache, y)
+
+        _, cache = self.forward(rnd_example)
+        grads = self.backward(cache, rnd_label)
         N_values = [k * 10 ** i for i in range(0, 5) for k in range(1, 6)]
         print(len(N_values))
         layer = 2
+        print("Layer ", layer)
         max_diff = []
         for N in N_values:
             eps = 1.0 / N
             delta = []
-            weights = self.weights
             for i, (W, dW) in enumerate(zip(self.weights["W" + str(layer)], grads["dW" + str(layer)])):
+                if i > 0:
+                    break
                 for j, (w, dw) in enumerate(zip(W, dW)):
-                    #print("i, j ", i, j)
-                    #print("w, dw ", w, dw)
-                    if i > 10:
+                    if j>10:
                         break
-                    #print("weights[W + str(layer)][i][j] ", weights["W" + str(layer)][i][j])
-                    weights["W" + str(layer)][i][j] = w + eps
-                    #print("weights[W + str(layer)][i][j] ", weights["W" + str(layer)][i][j])
 
-                    output1, _ = self.forward(x, weights, print_flag=True, i=i, j=j)
-                    #print("output1 ", output1)
-                    loss1 = self.loss(output1, y)
-                    #print("loss1 ", loss1)
+                    self.weights["W" + str(layer)][i][j] = w + eps
+                    output1, _ = self.forward(rnd_example)
+                    loss1 = self.loss(output1, rnd_label)
 
-                    #print("weights[W + str(layer)][i][j] ", weights["W" + str(layer)][i][j])
-                    weights["W" + str(layer)][i][j] = w - eps
-                    #print("weights[W + str(layer)][i][j] ", weights["W" + str(layer)][i][j])
+                    self.weights["W" + str(layer)][i][j] = w - eps
+                    output2, _ = self.forward(rnd_example)
+                    loss2 = self.loss(output2, rnd_label)
 
-                    output2, _ = self.forward(x, weights, print_flag=True, i=i, j=j)
-                    #print("output2 ", output2)
+                    self.weights["W" + str(layer)][i][j] = w
 
-                    loss2 = self.loss(output2, y)
-                    #print("loss2 ", loss2)
-
-                    #print("weights[W + str(layer)][i][j] ", weights["W" + str(layer)][i][j])
-                    weights["W" + str(layer)][i][j] = w
-                    #print("weights[W + str(layer)][i][j] ", weights["W" + str(layer)][i][j])
-
-                    est_grad = (loss1 - loss2) / (2 * eps)
-                    #print("est_grad ", est_grad)
-
-                    #print("abs(est_grad - dw) ", abs(est_grad - dw))
+                    est_grad = (loss1 - loss2)  * N /2
                     delta.append(abs(est_grad - dw))
             max_diff.append(np.max(delta))
             print("N, Max diff ", N, np.max(delta))
@@ -316,7 +276,53 @@ class NN(object):
         test_loss, test_accuracy, _ = self.compute_loss_and_accuracy(X_test, y_test)
         return test_loss, test_accuracy
 
+    """
+    N, Max diff 1 0.006544506913660486
+    N, Max diff  2 0.005216486602912074
+    N, Max diff  3 0.003915086286613523
+    N, Max diff  4 0.0026203439370533488
+    N, Max diff  5 0.0013282652305524056
+    N, Max diff  10 6.717387589748325e-09
+    N, Max diff  20 1.6793464943307135e-09
+    N, Max diff  30 7.463739062560371e-10
+    N, Max diff  40 4.198384409223599e-10
+    N, Max diff  50 2.6869489879594033e-10
+    N, Max diff  100 6.716721536598191e-11
+    N, Max diff  200 1.6818601199231065e-11
+    N, Max diff  300 7.448318871394743e-12
+    N, Max diff  400 4.16205871850428e-12
+    N, Max diff  500 2.6632576352603188e-12
+    N, Max diff  1000 6.093450397037792e-13
+    N, Max diff  2000 3.268028209157947e-13
+    N, Max diff  3000 3.275062512853033e-13
+    N, Max diff  4000 5.797541266505668e-13
+    N, Max diff  5000 8.607030019258666e-13
+    N, Max diff  10000 1.0543996231682229e-12
+    N, Max diff  20000 2.2762694507072467e-12
+    N, Max diff  30000 3.0371924593375343e-12
+    N, Max diff  40000 4.767694919416421e-12
+    N, Max diff  50000 6.826593977604656e-12
+    """
+
+    def plot(self):
+        max_diff = [0.006544506913660486, 0.005216486602912074, 0.003915086286613523, 0.0026203439370533488,
+                    0.0013282652305524056, 6.717387589748325e-09, 1.6793464943307135e-09, 7.463739062560371e-10,
+                    4.198384409223599e-10, 2.6869489879594033e-10, 6.716721536598191e-11, 1.6818601199231065e-11,
+                    7.448318871394743e-12, 4.16205871850428e-12, 2.6632576352603188e-12, 6.093450397037792e-13,
+                    3.268028209157947e-13, 3.275062512853033e-13, 5.797541266505668e-13, 8.607030019258666e-13,
+                    1.0543996231682229e-12, 2.2762694507072467e-12, 3.0371924593375343e-12, 4.767694919416421e-12,
+                    6.826593977604656e-12]
+        N = [1, 2, 3, 4, 5, 10, 20, 30, 40, 50, 100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000,
+             10000, 20000, 30000, 40000, 50000]
+        plt.figure()
+        plt.plot(N, max_diff, 'b')
+        plt.xscale("log")
+        plt.xlabel('N')
+        plt.ylabel('maximum difference')
+        plt.savefig('finite_diff.jpg')
+
 data = load_mnist()
 
 nn = NN(hidden_dims=(512,512), lr=0.01, batch_size=16, data=data)
-train_logs  = nn.train_loop(10)
+#train_logs  = nn.train_loop(2)
+nn.plot()
