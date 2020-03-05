@@ -92,13 +92,13 @@ parser = argparse.ArgumentParser(description='PyTorch Penn Treebank Language Mod
 parser.add_argument('--data', type=str, default='data',
                     help='location of the data corpus. We suggest you change the default\
                     here, rather than passing as an argument, to avoid long file paths.')
-parser.add_argument('--model', type=str, default='GRU',
+parser.add_argument('--model', type=str, default='TRANSFORMER',
                     help='type of recurrent net (RNN, GRU, TRANSFORMER)')
 parser.add_argument('--optimizer', type=str, default='SGD_LR_SCHEDULE',
                     help='optimization algo to use; SGD, SGD_LR_SCHEDULE, ADAM')
 parser.add_argument('--seq_len', type=int, default=35,
                     help='number of timesteps over which BPTT is performed')
-parser.add_argument('--batch_size', type=int, default=20,
+parser.add_argument('--batch_size', type=int, default=2,
                     help='size of one minibatch')
 parser.add_argument('--initial_lr', type=float, default=20.0,
                     help='initial learning rate')
@@ -300,7 +300,7 @@ elif args.model == 'GRU':
                 dp_keep_prob=args.dp_keep_prob)
 elif args.model == 'TRANSFORMER':
     if args.debug:  # use a very small model
-        model = TRANSFORMER(vocab_size=vocab_size, n_units=16, n_blocks=2)
+        model = TRANSFORMER(vocab_size=vocab_size, n_units=32, n_blocks=2)
     else:
         # Note that we're using num_layers and hidden_size to mean slightly
         # different things here than in the RNNs.
@@ -317,7 +317,7 @@ else:
     print("Model type not recognized.")
 
 model = model.to(device)
-torch.autograd.set_detect_anomaly(True)
+#torch.autograd.set_detect_anomaly(True)
 
 # LOSS FUNCTION
 loss_fn = nn.CrossEntropyLoss()

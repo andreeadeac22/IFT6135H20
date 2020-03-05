@@ -351,13 +351,13 @@ class GRU(nn.Module): # Implement a stacked GRU RNN
                 # And apply the activation function tanh on it
                 #print("input ", input_.shape)
                 #print("hidden[layer-1] ", hidden[layer-1].shape)
-                r_t = torch.sigmoid(self.r[layer](torch.cat([input_, hidden[layer-1]], 1)))
+                r_t = torch.sigmoid(self.r[layer](torch.cat([input_, hidden[layer]], 1)))
                 #print("r_t ", r_t.shape)
-                z_t = torch.sigmoid(self.z[layer](torch.cat([input_, hidden[layer-1]], 1)))
+                z_t = torch.sigmoid(self.z[layer](torch.cat([input_, hidden[layer]], 1)))
                 #print("z_t ", z_t.shape)
-                h_tilda = torch.tanh(self.h[layer](torch.cat([input_, r_t * hidden[layer-1]], 1)))
+                h_tilda = torch.tanh(self.h[layer](torch.cat([input_, r_t * hidden[layer].clone()], 1)))
                 #print("h_tilda ", h_tilda.shape)
-                hidden[layer] = hidden[layer-1] + z_t * (h_tilda - hidden[layer-1])  #hidden[layer] + z_t * (hidden[layer] - h_tilda)
+                hidden[layer] = z_t * h_tilda + (1.0 - z_t) * hidden[layer]
                 # Apply dropout on this layer, but not for the recurrent units
                 input_ = self.dropout(hidden[layer])
             # Store the output of the time step
@@ -462,6 +462,8 @@ class MultiHeadedAttention(nn.Module):
         # This sets the size of the keys, values, and queries (self.d_k) to all
         # be equal to the number of output units divided by the number of heads.
         self.d_k = n_units // n_heads
+        print("n_units ", n_units)
+        print("n_heads ", n_heads)
         # This requires the number of n_heads to evenly divide n_units.
         assert n_units % n_heads == 0
         self.n_units = n_units
@@ -481,7 +483,7 @@ class MultiHeadedAttention(nn.Module):
         # function we provide.
         self.linears = nn.ModuleList()
         self.linears.extend(clones(nn.Linear(self.n_units, n_heads*self.d_k), 3))
-        self.linears.append(nn.Linear( n_heads*self.d_k, self.d_k))
+        self.linears.append(nn.Linear(n_heads*self.d_k, self.n_units))
 
         self.dropout = nn.Dropout(dropout)
 
@@ -505,16 +507,22 @@ class MultiHeadedAttention(nn.Module):
         # the normalized scores after dropout.
 
         # TODO ========================
-        scores = 0
+        #("query ", query.shape)
+        #print("key ", key.shape)
+        scores = torch.matmul(query, torch.transpose(key, 2, 3)) * np.sqrt(1./query.shape[3])
+        #print("scores ", scores.shape)
         if mask is not None:
             if len(mask.size()) == 3 and len(query.size()) == 4:
                 mask.unsqueeze(1)
-            scores = scores.masked_fill()
-        norm_scores =0
+            scores = scores.masked_fill(mask == 0,  -1e9)
+        #print("scores ", scores.shape)
+        norm_scores = torch.softmax(scores, dim=-1)
         if dropout is not None:
-            norm_scores = 0# Tensor of shape batch_size x n_heads x seq_len x seq_len
-        output = 0 # Tensor of shape batch_size x n_heads x seq_len x d_k
-
+            norm_scores = dropout(norm_scores)# Tensor of shape batch_size x n_heads x seq_len x seq_len
+        #print("norm_scores ", norm_scores.shape)
+        #print("value ", value.shape)
+        output = torch.matmul(norm_scores, value) # Tensor of shape batch_size x n_heads x seq_len x d_k
+        #print("output ", output.shape)
         return output, norm_scores
 
 
@@ -529,15 +537,33 @@ class MultiHeadedAttention(nn.Module):
             mask = mask.unsqueeze(1)
         # TODO ========================
         # 1) Do all the linear projections in batch from n_units => n_heads x d_k
+        #print("query.shape ", query.shape)
+        project_q = self.linears[0](query).view(query.shape[0], query.shape[1], self.n_heads, self.d_k)
+        project_q = torch.transpose(project_q, 1, 2)
+        #print("project_q ", project_q.shape)
+
+        project_k = self.linears[1](key).view(key.shape[0], key.shape[1], self.n_heads, self.d_k)
+        project_k = torch.transpose(project_k, 1, 2)
+
+        project_v = self.linears[2](value).view(value.shape[0], value.shape[1], self.n_heads, self.d_k)
+        project_v = torch.transpose(project_v, 1, 2)
 
         # 2) Apply attention on all the projected vectors in batch.
         # The query, key, value inputs to the attention method will be of size
         # batch_size x n_heads x seq_len x d_k
+        output, norm_scores = self.attention(project_q, project_k,
+                                             project_v, mask, self.dropout)
 
         # 3) "Concat" using a view and apply a final linear.
+        #print(output.shape)
+        output = torch.transpose(output, 1, 2)
+        #print(output.shape)
+        concat_heads = output.reshape(output.shape[0], output.shape[1], self.n_heads * self.d_k)
+        #print("concat_heads ", concat_heads.shape)
+        result = self.linears[3](concat_heads)
+        #print("result ", result.shape)
 
-
-        return # size: (batch_size, seq_len, self.n_units)
+        return result # size: (batch_size, seq_len, self.n_units)
 
 
 
@@ -629,6 +655,7 @@ def make_model(vocab_size, n_blocks=6,
                n_units=512, n_heads=16, dropout=0.1):
     "Helper: Construct a model from hyperparameters."
     c = copy.deepcopy
+    print("in make_model")
     attn = MultiHeadedAttention(n_heads, n_units)
     ff = MLP(n_units, dropout)
     position = PositionalEncoding(n_units, dropout)
