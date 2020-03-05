@@ -218,22 +218,27 @@ class GRU(nn.Module): # Implement a stacked GRU RNN
         self.batch_size = batch_size
         # TODO ========================
 
-        self.word_embeddings =
+        self.word_embeddings = nn.Embedding(self.vocab_size, self.emb_size)
 
         # Create "reset gate" layers
-        self.r =
-
+        self.r = nn.ModuleList()
+        self.r.append(nn.Linear(emb_size + hidden_size, hidden_size))
+        self.r.extend(clones(nn.Linear(2 * hidden_size, hidden_size), num_layers - 1))
         # Create "forget gate" layers
-        self.z =
+        self.z = nn.ModuleList()
+        self.z.append(nn.Linear(emb_size + hidden_size, hidden_size))
+        self.z.extend(clones(nn.Linear(2 * hidden_size, hidden_size), num_layers - 1))
 
         # Create the "memory content" layers
-        self.h =
+        self.h = nn.ModuleList()
+        self.h.append(nn.Linear(emb_size + hidden_size, hidden_size))
+        self.h.extend(clones(nn.Linear(2 * hidden_size, hidden_size), num_layers - 1))
 
         # Dropout
-        self.dropout =
+        self.dropout = nn.Dropout(1 - self.dp_keep_prob)
 
         # The output layer
-        self.out_layer =
+        self.out_layer = nn.Linear(hidden_size, vocab_size)
 
         self.init_embedding_weights_uniform()
         self.init_reset_gate_weights_uniform()
@@ -241,20 +246,48 @@ class GRU(nn.Module): # Implement a stacked GRU RNN
         self.init_memory_weights_uniform()
         self.init_out_layer_weights_uniform()
 
+
     def init_embedding_weights_uniform(self, init_range=0.1):
         # TODO ========================
+        # Intialize embedding weights unformly in the range [-0.1, 0.1]
+        nn.init.uniform_(self.word_embeddings.weight, -init_range, init_range)
+
 
     def init_reset_gate_weights_uniform(self):
         # TODO ========================
+        # For every layer
+        for i in range(self.num_layers):
+            # Initialize the weights and biases uniformly
+            b = 1 / math.sqrt(self.hidden_size)
+            nn.init.uniform_(self.r[i].weight, -b, b)
+            nn.init.uniform_(self.r[i].bias, -b, b)
+
 
     def init_forget_gate_weights_uniform(self):
         # TODO ========================
+        for i in range(self.num_layers):
+            # Initialize the weights and biases uniformly
+            b = 1 / math.sqrt(self.hidden_size)
+            nn.init.uniform_(self.z[i].weight, -b, b)
+            nn.init.uniform_(self.z[i].bias, -b, b)
+
 
     def init_memory_weights_uniform(self):
         # TODO ========================
+        for i in range(self.num_layers):
+            # Initialize the weights and biases uniformly
+            b = 1 / math.sqrt(self.hidden_size)
+            nn.init.uniform_(self.h[i].weight, -b, b)
+            nn.init.uniform_(self.h[i].bias, -b, b)
+
 
     def init_out_layer_weights_uniform(self):
         # TODO ========================
+        # Initialize output layer weights uniformly in the range [-0.1, 0.1]
+        # And all the biases to 0
+        nn.init.uniform_(self.out_layer.weight, -0.1, 0.1)
+        nn.init.zeros_(self.out_layer.bias)
+
 
     def init_hidden(self):
         """
@@ -263,7 +296,8 @@ class GRU(nn.Module): # Implement a stacked GRU RNN
         filled with zeros as the initial hidden states of the GRU.
         """
         # TODO ========================
-        return initial_hidden
+        return torch.zeros(self.num_layers, self.batch_size, self.hidden_size)
+
 
     def forward(self, inputs, hidden):
         """ Compute the recurrent updates.
@@ -296,7 +330,40 @@ class GRU(nn.Module): # Implement a stacked GRU RNN
                         shape: (num_layers, batch_size, hidden_size)
         """
         # TODO ========================
+        if inputs.is_cuda:
+            device = inputs.get_device()
+        else:
+            device = torch.device("cpu")
+
+        # Apply the Embedding layer on the input
+        embed_out = self.word_embeddings(inputs)# shape (seq_len,batch_size,emb_size)
+
+        # Create a tensor to store outputs during the Forward
+        logits = torch.zeros(self.seq_len, self.batch_size, self.vocab_size).to(device)
+
+        # For each time step
+        for timestep in range(self.seq_len):
+            # Apply dropout on the embedding result
+            input_ = self.dropout(embed_out[timestep])
+            # For each layer
+            for layer in range(self.num_layers):
+                # Calculate the hidden states
+                # And apply the activation function tanh on it
+                #print("input ", input_.shape)
+                #print("hidden[layer-1] ", hidden[layer-1].shape)
+                r_t = torch.sigmoid(self.r[layer](torch.cat([input_, hidden[layer-1]], 1)))
+                #print("r_t ", r_t.shape)
+                z_t = torch.sigmoid(self.z[layer](torch.cat([input_, hidden[layer-1]], 1)))
+                #print("z_t ", z_t.shape)
+                h_tilda = torch.tanh(self.h[layer](torch.cat([input_, r_t * hidden[layer-1]], 1)))
+                #print("h_tilda ", h_tilda.shape)
+                hidden[layer] = hidden[layer-1] + z_t * (h_tilda - hidden[layer-1])  #hidden[layer] + z_t * (hidden[layer] - h_tilda)
+                # Apply dropout on this layer, but not for the recurrent units
+                input_ = self.dropout(hidden[layer])
+            # Store the output of the time step
+            logits[timestep] = self.out_layer(input_)
         return logits, hidden
+
 
     def generate(self, input, hidden, generated_seq_len):
         """
@@ -412,8 +479,11 @@ class MultiHeadedAttention(nn.Module):
         # Note: the only Pytorch modules you are allowed to use are nn.Linear
         # and nn.Dropout. You can also use softmax, masked_fill and the "clones"
         # function we provide.
-        self.linears =
-        self.dropout =
+        self.linears = nn.ModuleList()
+        self.linears.extend(clones(nn.Linear(self.n_units, n_heads*self.d_k), 3))
+        self.linears.append(nn.Linear( n_heads*self.d_k, self.d_k))
+
+        self.dropout = nn.Dropout(dropout)
 
     def attention(self, query, key, value, mask=None, dropout=None):
         # Implement scaled dot product attention
@@ -435,15 +505,15 @@ class MultiHeadedAttention(nn.Module):
         # the normalized scores after dropout.
 
         # TODO ========================
-        scores =
+        scores = 0
         if mask is not None:
             if len(mask.size()) == 3 and len(query.size()) == 4:
                 mask.unsqueeze(1)
             scores = scores.masked_fill()
-        norm_scores =
+        norm_scores =0
         if dropout is not None:
-            norm_scores =  # Tensor of shape batch_size x n_heads x seq_len x seq_len
-        output = # Tensor of shape batch_size x n_heads x seq_len x d_k
+            norm_scores = 0# Tensor of shape batch_size x n_heads x seq_len x seq_len
+        output = 0 # Tensor of shape batch_size x n_heads x seq_len x d_k
 
         return output, norm_scores
 

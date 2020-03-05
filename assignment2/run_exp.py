@@ -317,6 +317,7 @@ else:
     print("Model type not recognized.")
 
 model = model.to(device)
+torch.autograd.set_detect_anomaly(True)
 
 # LOSS FUNCTION
 loss_fn = nn.CrossEntropyLoss()
