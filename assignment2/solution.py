@@ -191,27 +191,31 @@ class RNN(nn.Module):
             device = torch.device("cpu")
 
         # Apply the Embedding layer on the input
-        embed_out = self.embeddings(inputs)# shape (batch_size,emb_size)
-        print("embed_out.shape ", embed_out.shape)
+        print("inputs " , inputs.shape)
 
-        # Apply dropout on the embedding result
-        input_ = self.dropout(embed_out)
         # Create a tensor to store outputs during the Forward
-        gen_inputs = input_.reshape(generated_seq_len, self.batch_size, self.vocab_size).to(device)
+        samples = torch.zeros(generated_seq_len, self.batch_size)
+        print("samples ", samples.shape)
+
+        embed_out = self.embeddings(inputs) # shape (1, batch_size,emb_size)
+        print("embed_out.shape ", embed_out.shape)
 
         # For each time step
         for timestep in range(generated_seq_len):
-            input_ = gen_inputs[timestep]
             # For each layer
             for layer in range(self.num_layers):
                 # Calculate the hidden states
                 # And apply the activation function tanh on it
-                hidden[layer] = torch.tanh(self.layers[layer](torch.cat([input_, hidden[layer]], 1)))
+                hidden[layer] = torch.tanh(self.layers[layer](torch.cat([embed_out, hidden[layer]], 1)))
                 # Apply dropout on this layer, but not for the recurrent units
-                input_ = self.dropout(hidden[layer])
+                embed_out = hidden[layer]
+            best_word = torch.argmax(self.out_layer(embed_out), -1)
+            #print("best word ", best_word.shape)
+            embed_out = self.embeddings(best_word)
             # Store the output of the time step
-            gen_inputs[timestep+1] = torch.argmax(self.out_layer(input_))
-        return gen_inputs
+            samples[timestep] = best_word
+
+        return samples
 
 
 # Problem 1
@@ -384,7 +388,7 @@ class GRU(nn.Module): # Implement a stacked GRU RNN
                 #print("z_t ", z_t.shape)
                 h_tilda = torch.tanh(self.h[layer](torch.cat([input_, r_t * hidden[layer].clone()], 1)))
                 #print("h_tilda ", h_tilda.shape)
-                hidden[layer] = z_t * h_tilda + (1.0 - z_t) * hidden[layer]
+                hidden[layer] = z_t * h_tilda + (1.0 - z_t) * hidden[layer].clone()
                 # Apply dropout on this layer, but not for the recurrent units
                 input_ = self.dropout(hidden[layer])
             # Store the output of the time step
@@ -414,6 +418,39 @@ class GRU(nn.Module): # Implement a stacked GRU RNN
                         shape: (generated_seq_len, batch_size)
         """
         # TODO ========================
+        if input.is_cuda:
+            device = input.get_device()
+        else:
+            device = torch.device("cpu")
+
+            # Apply the Embedding layer on the input
+        embed_out = self.word_embeddings(input)  # shape (seq_len,batch_size,emb_size)
+
+        # Create a tensor to store outputs during the Forward
+        samples = torch.zeros(generated_seq_len, self.batch_size)
+        print("samples ", samples.shape)
+
+        # For each time step
+        for timestep in range(generated_seq_len):
+            # For each layer
+            for layer in range(self.num_layers):
+                # Calculate the hidden states
+                # And apply the activation function tanh on it
+                # print("input ", input_.shape)
+                # print("hidden[layer-1] ", hidden[layer-1].shape)
+                r_t = torch.sigmoid(self.r[layer](torch.cat([embed_out, hidden[layer]], 1)))
+                # print("r_t ", r_t.shape)
+                z_t = torch.sigmoid(self.z[layer](torch.cat([embed_out, hidden[layer]], 1)))
+                # print("z_t ", z_t.shape)
+                h_tilda = torch.tanh(self.h[layer](torch.cat([embed_out, r_t * hidden[layer].clone()], 1)))
+                # print("h_tilda ", h_tilda.shape)
+                hidden[layer] = z_t * h_tilda + (1.0 - z_t) * hidden[layer].clone()
+                # Apply dropout on this layer, but not for the recurrent units
+                embed_out = hidden[layer]
+            # Store the output of the time step
+            best_word = torch.argmax(self.out_layer(embed_out), -1)
+            embed_out = self.word_embeddings(best_word)
+            samples[timestep] = best_word.detach()
         return samples
 
 
