@@ -184,7 +184,34 @@ class RNN(nn.Module):
                         shape: (generated_seq_len, batch_size)
         """
         # TODO ========================
-        return samples
+        print("calling generated")
+        if inputs.is_cuda:
+            device = inputs.get_device()
+        else:
+            device = torch.device("cpu")
+
+        # Apply the Embedding layer on the input
+        embed_out = self.embeddings(inputs)# shape (batch_size,emb_size)
+        print("embed_out.shape ", embed_out.shape)
+
+        # Apply dropout on the embedding result
+        input_ = self.dropout(embed_out)
+        # Create a tensor to store outputs during the Forward
+        gen_inputs = input_.reshape(generated_seq_len, self.batch_size, self.vocab_size).to(device)
+
+        # For each time step
+        for timestep in range(generated_seq_len):
+            input_ = gen_inputs[timestep]
+            # For each layer
+            for layer in range(self.num_layers):
+                # Calculate the hidden states
+                # And apply the activation function tanh on it
+                hidden[layer] = torch.tanh(self.layers[layer](torch.cat([input_, hidden[layer]], 1)))
+                # Apply dropout on this layer, but not for the recurrent units
+                input_ = self.dropout(hidden[layer])
+            # Store the output of the time step
+            gen_inputs[timestep+1] = torch.argmax(self.out_layer(input_))
+        return gen_inputs
 
 
 # Problem 1
