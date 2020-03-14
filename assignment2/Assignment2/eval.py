@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import os
 import seaborn as sns
+import plotly.graph_objects as go
 
 
 def plot(results_dict):
@@ -9,7 +10,7 @@ def plot(results_dict):
     plt.figure(1)
     plt.xlabel('epoch')
     plt.ylabel('train-val-ppl')
-    plt.title('PPL for different RNNs')
+    plt.title('PPL-epoch for different RNNs')
 
 
     plt.figure(2)
@@ -23,12 +24,8 @@ def plot(results_dict):
     for i, filename in enumerate(results_dict):
         print(filename)
         chunks = filename.split('_')
-        print(chunks)
-        print(chunks[5][3:])
         lr = float(chunks[5][3:])
         batch_size = int(chunks[7][5:])
-        print(lr)
-        print(batch_size)
 
         if 'SGD' in filename:
             label = 'SGD, batch=' + str(batch_size)
@@ -47,12 +44,12 @@ def plot(results_dict):
         #print("time ", time)
 
         plt.figure(1)
-        plt.plot(range(20), train_ppl, colors[i], label=label)
-        plt.plot(range(20), valid_ppl, colors[i] + '--',  label=label)
+        plt.plot(range(20), train_ppl, colors[i], label='train ' + label)
+        plt.plot(range(20), valid_ppl, colors[i] + '--',  label='val ' + label)
 
         plt.figure(2)
-        plt.plot(time, train_ppl, colors[i], label=label)
-        plt.plot(time, valid_ppl, colors[i] + '--', label=label)
+        plt.plot(time, train_ppl, colors[i], label='train ' + label)
+        plt.plot(time, valid_ppl, colors[i] + '--', label='val ' + label)
 
     plt.figure(1)
     plt.legend()
