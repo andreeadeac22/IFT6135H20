@@ -300,7 +300,7 @@ elif args.model == 'GRU':
                 dp_keep_prob=args.dp_keep_prob)
 elif args.model == 'TRANSFORMER':
     if args.debug:  # use a very small model
-        model = TRANSFORMER(vocab_size=vocab_size, n_units=32, n_blocks=2)
+        model = TRANSFORMER(vocab_size=vocab_size, n_units=16, n_blocks=2)
     else:
         # Note that we're using num_layers and hidden_size to mean slightly
         # different things here than in the RNNs.
@@ -317,7 +317,6 @@ else:
     print("Model type not recognized.")
 
 model = model.to(device)
-torch.autograd.set_detect_anomaly(True)
 
 # LOSS FUNCTION
 loss_fn = nn.CrossEntropyLoss()
@@ -384,10 +383,6 @@ def run_epoch(model, data, is_train=False, lr=1.0):
             model.zero_grad()
             hidden = repackage_hidden(hidden)
             outputs, hidden = model(inputs, hidden)
-
-            print("generating")
-            gen_seq = model.generate(inputs[0], hidden, 10)
-            print("gen ", gen_seq)
 
         targets = torch.from_numpy(y.astype(np.int64)).transpose(0, 1).contiguous().to(device)#.cuda()
         tt = torch.squeeze(targets.view(-1, model.batch_size * model.seq_len))
