@@ -1,9 +1,10 @@
 import matplotlib.pyplot as plt
 import os
-
+import seaborn as sns
 
 
 def plot(results_dict):
+    sns.set()
 
     plt.figure(1)
     plt.xlabel('epoch')
@@ -20,28 +21,46 @@ def plot(results_dict):
     colors = ['b', 'r', 'g', 'c', 'y']
 
     for i, filename in enumerate(results_dict):
+        print(filename)
+        chunks = filename.split('_')
+        print(chunks)
+        print(chunks[5][3:])
+        lr = float(chunks[5][3:])
+        batch_size = int(chunks[7][5:])
+        print(lr)
+        print(batch_size)
+
+        if 'SGD' in filename:
+            label = 'SGD, batch=' + str(batch_size)
+        else:
+            label = 'ADAM, lr=' + str(lr)
+
+        #batch_size = int(chunks[])
 
         result_list = results_dict[filename]
         train_ppl = result_list[0]
-        print("train_ppl", train_ppl)
+        print("train_ppl ", train_ppl)
         valid_ppl = result_list[1]
+        print("valid_ppl ", valid_ppl)
+
         time = result_list[3]
-        print("time ", time)
+        #print("time ", time)
 
         plt.figure(1)
-        plt.plot(range(20), train_ppl, c=colors[i], label=filename)
-        plt.plot(range(20), valid_ppl, c=colors[i], label=filename)
+        plt.plot(range(20), train_ppl, colors[i], label=label)
+        plt.plot(range(20), valid_ppl, colors[i] + '--',  label=label)
 
         plt.figure(2)
-        plt.plot(time, train_ppl, c=colors[i], label=filename)
-        plt.plot(time, valid_ppl, c=colors[i], label=filename)
+        plt.plot(time, train_ppl, colors[i], label=label)
+        plt.plot(time, valid_ppl, colors[i] + '--', label=label)
 
     plt.figure(1)
-    #plt.legend()
+    plt.legend()
+    #plt.ylim(30, 1500)
     plt.savefig('epoch3.1.jpg')
 
     plt.figure(2)
-    #plt.legend()
+    plt.legend()
     plt.savefig('time3.1.jpg')
 
 
@@ -61,13 +80,16 @@ def parse_log(file_name):
     valid_ppl = []
     best_val = []
     time = []
+    total_time = 0
 
     for line in f:
         chunks = line.split('\t')
         train_ppl += [float(chunks[1][11:])]
         valid_ppl += [float(chunks[2][9:])]
         best_val += [float(chunks[3][10:])]
-        time += [float(chunks[4][24:])]
+        new_time = float(chunks[4][24:])
+        total_time += new_time
+        time += [total_time]
 
     return [train_ppl, valid_ppl, best_val, time]
 
