@@ -24,15 +24,19 @@ def plot(results_dict):
     for i, filename in enumerate(results_dict):
         print(filename)
         chunks = filename.split('_')
+        print(chunks)
         lr = float(chunks[5][3:])
         batch_size = int(chunks[7][5:])
+        hidden = int(chunks[11][5:])
+        layers = int(chunks[13][7:])
+        dropout = 1.0 - float(chunks[16][5:])
 
-        if 'SGD' in filename:
-            label = 'SGD, lr=' + str(lr) + ', b=' +str(batch_size)
-        else:
-            label = 'ADAM, lr=' + str(lr) + ', b=' + str(batch_size)
+        #if 'SGD' in filename: # for 3.1 and 3.2
+        #    label = 'SGD, lr=' + str(lr) + ', b=' +str(batch_size)
+        #else:
+        #    label = 'ADAM, lr=' + str(lr) + ', b=' + str(batch_size)
 
-        #batch_size = int(chunks[])
+        label = 'h=' + str(hidden) + ', l=' + str(layers) + ', d=' + str(dropout)
 
         result_list = results_dict[filename]
         train_ppl = result_list[0]
@@ -54,11 +58,11 @@ def plot(results_dict):
     plt.figure(1)
     plt.legend()
     #plt.ylim(30, 1500)
-    plt.savefig('epoch3.2.jpg')
+    plt.savefig('epoch3.3.jpg')
 
     plt.figure(2)
     plt.legend()
-    plt.savefig('time3.2.jpg')
+    plt.savefig('time3.3.jpg')
 
 
 def parse_log(file_name):
@@ -92,22 +96,23 @@ def parse_log(file_name):
 
 
 def main():
-    #    - For Problem 3.2 the hyperparameter settings you should run are as follows
-    #            --model=GRU --optimizer=ADAM --initial_lr=0.001 --batch_size=128 --seq_len=35 --hidden_size=512 --num_layers=2 --dp_keep_prob=0.5  --num_epochs=20 --save_best
-    #            --model=GRU --optimizer=SGD  --initial_lr=10.0  --batch_size=128 --seq_len=35 --hidden_size=512 --num_layers=2 --dp_keep_prob=0.5  --num_epochs=20
-    #            --model=GRU --optimizer=ADAM --initial_lr=0.001 --batch_size=20 --seq_len=35 --hidden_size=512 --num_layers=2 --dp_keep_prob=0.5  --num_epochs=20
+    #    - For Problem 3.3 the hyperparameter settings you should run are as follows
+    #            --model=GRU --optimizer=ADAM --initial_lr=0.001 --batch_size=128 --seq_len=35 --hidden_size=256 --num_layers=2 --dp_keep_prob=0.2  --num_epochs=20
+    #            --model=GRU --optimizer=ADAM --initial_lr=0.001 --batch_size=128 --seq_len=35 --hidden_size=2048 --num_layers=2 --dp_keep_prob=0.5  --num_epochs=20
+    #            --model=GRU --optimizer=ADAM --initial_lr=0.001 --batch_size=128 --seq_len=35 --hidden_size=512 --num_layers=4 --dp_keep_prob=0.5  --num_epochs=20
     dirs = os.walk('.')
     results_dict = {}
     for dir in dirs:
-        # for 3.1
-        # if dir[0].startswith('./Assignment2/RNN'):
-        # for 3.2
-        if dir[0].startswith('./Assignment2/GRU') and 'size=512' in dir[0] and 'layers=2' in dir[0]:
+        # if dir[0].startswith('./Assignment2/RNN'): # for 3.1
+        # if dir[0].startswith('./Assignment2/GRU') and 'hidden_size=512' in dir[0] and 'layers=2' in dir[0]: # for 3.2
+        if dir[0].startswith('./Assignment2/GRU_ADAM') and 'batch_size=128' in dir[0] \
+                and ('hidden_size=256' in dir[0] or 'hidden_size=2048' in dir[0] or \
+                     ('hidden_size=512' in dir[0] and 'num_layers=4' in dir[0])): #for 3.3
             files = dir[2]
             filename = dir[0] + '/' + files[1]
             print(filename)
             results_dict[filename] = parse_log(filename)
-
+    print("Plotting")
     plot(results_dict)
 
 
