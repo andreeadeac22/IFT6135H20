@@ -10,13 +10,13 @@ def plot(results_dict):
     plt.figure(1)
     plt.xlabel('epoch')
     plt.ylabel('train-val-ppl')
-    plt.title('PPL-epoch for different RNNs')
+    plt.title('PPL-epoch for different GRUs')
 
 
     plt.figure(2)
     plt.xlabel('wall clock time')
     plt.ylabel('train-val-ppl')
-    plt.title('PPL-time for different RNNs')
+    plt.title('PPL-time for different GRUs')
 
 
     colors = ['b', 'r', 'g', 'c', 'y']
@@ -28,9 +28,9 @@ def plot(results_dict):
         batch_size = int(chunks[7][5:])
 
         if 'SGD' in filename:
-            label = 'SGD, batch=' + str(batch_size)
+            label = 'SGD, lr=' + str(lr) + ', b=' +str(batch_size)
         else:
-            label = 'ADAM, lr=' + str(lr)
+            label = 'ADAM, lr=' + str(lr) + ', b=' + str(batch_size)
 
         #batch_size = int(chunks[])
 
@@ -54,11 +54,11 @@ def plot(results_dict):
     plt.figure(1)
     plt.legend()
     #plt.ylim(30, 1500)
-    plt.savefig('epoch3.1.jpg')
+    plt.savefig('epoch3.2.jpg')
 
     plt.figure(2)
     plt.legend()
-    plt.savefig('time3.1.jpg')
+    plt.savefig('time3.2.jpg')
 
 
 def parse_log(file_name):
@@ -92,19 +92,18 @@ def parse_log(file_name):
 
 
 def main():
-    # - For Problem 3.1 the hyperparameter settings you should run are as follows
-    #            --model=RNN --optimizer=SGD --initial_lr=1.0 --batch_size=128 --seq_len=35 --hidden_size=512 --num_layers=2 --dp_keep_prob=0.8  --num_epochs=20 --save_best
-    #            --model=RNN --optimizer=SGD --initial_lr=1.0 --batch_size=20  --seq_len=35 --hidden_size=512 --num_layers=2 --dp_keep_prob=0.8  --num_epochs=20
-    #            --model=RNN --optimizer=SGD --initial_lr=10.0 --batch_size=128 --seq_len=35 --hidden_size=512 --num_layers=2 --dp_keep_prob=0.8  --num_epochs=20
-    #            --model=RNN --optimizer=ADAM --initial_lr=0.001 --batch_size=128 --seq_len=35 --hidden_size=512 --num_layers=2 --dp_keep_prob=0.8  --num_epochs=20
-    #            --model=RNN --optimizer=ADAM --initial_lr=0.0001 --batch_size=128 --seq_len=35 --hidden_size=512 --num_layers=2 --dp_keep_prob=0.8  --num_epochs=20
+    #    - For Problem 3.2 the hyperparameter settings you should run are as follows
+    #            --model=GRU --optimizer=ADAM --initial_lr=0.001 --batch_size=128 --seq_len=35 --hidden_size=512 --num_layers=2 --dp_keep_prob=0.5  --num_epochs=20 --save_best
+    #            --model=GRU --optimizer=SGD  --initial_lr=10.0  --batch_size=128 --seq_len=35 --hidden_size=512 --num_layers=2 --dp_keep_prob=0.5  --num_epochs=20
+    #            --model=GRU --optimizer=ADAM --initial_lr=0.001 --batch_size=20 --seq_len=35 --hidden_size=512 --num_layers=2 --dp_keep_prob=0.5  --num_epochs=20
     dirs = os.walk('.')
     results_dict = {}
     for dir in dirs:
-        if dir[0].startswith('./Assignment2/RNN'):
-            print(dir[0])
+        # for 3.1
+        # if dir[0].startswith('./Assignment2/RNN'):
+        # for 3.2
+        if dir[0].startswith('./Assignment2/GRU') and 'size=512' in dir[0] and 'layers=2' in dir[0]:
             files = dir[2]
-            print(files[1])
             filename = dir[0] + '/' + files[1]
             print(filename)
             results_dict[filename] = parse_log(filename)
