@@ -3,26 +3,46 @@ import os
 
 
 
-def plot(exp1, exp2, exp3, exp4, exp5):
+def plot(results_dict):
 
-    zero_init_train_loss = [2.302421418707069, 2.302274667119889, 2.3021431184461356, 2.3020252225102973,
-                            2.3019195827656724, 2.3018249417288428, 2.30174016771185, 2.3016642427439344,
-                            2.301596251583872, 2.3015353717321325]
-    normal_init_train_loss = [2.1670133457355707, 1.6282529320101617, 1.412485651398122, 1.1769963806257004,
-                              1.0669246246750133, 0.9999256249361914, 0.9400407181562437, 0.8923009483761754,
-                              0.8431614317669878, 0.8175628259848486]
-    glorot_init_train_loss = [1.8601016234556451, 1.4400731981324928, 1.1124919536438642, 0.897167160486312,
-                              0.7593353841920966, 0.6672244247053242, 0.6021454189180506, 0.553894626041198,
-                              0.5167791770125256, 0.4873786554075815]
-    plt.figure()
-    plt.plot(range(10), zero_init_train_loss, 'b', label='Zero initialization')
-    plt.plot(range(10), normal_init_train_loss, 'r', label='Normal initialization')
-    plt.plot(range(10), glorot_init_train_loss, 'g', label='Glorot initialization')
+    plt.figure(1)
     plt.xlabel('epoch')
-    plt.ylabel('training loss')
-    plt.title('Average training loss using different weight initializations')
-    plt.legend()
-    plt.savefig('initializations.jpg')
+    plt.ylabel('train-val-ppl')
+    plt.title('PPL for different RNNs')
+
+
+    plt.figure(2)
+    plt.xlabel('wall clock time')
+    plt.ylabel('train-val-ppl')
+    plt.title('PPL-time for different RNNs')
+
+
+    colors = ['b', 'r', 'g', 'c', 'y']
+
+    for i, filename in enumerate(results_dict):
+
+        result_list = results_dict[filename]
+        train_ppl = result_list[0]
+        print("train_ppl", train_ppl)
+        valid_ppl = result_list[1]
+        time = result_list[3]
+        print("time ", time)
+
+        plt.figure(1)
+        plt.plot(range(20), train_ppl, c=colors[i], label=filename)
+        plt.plot(range(20), valid_ppl, c=colors[i], label=filename)
+
+        plt.figure(2)
+        plt.plot(time, train_ppl, c=colors[i], label=filename)
+        plt.plot(time, valid_ppl, c=colors[i], label=filename)
+
+    plt.figure(1)
+    #plt.legend()
+    plt.savefig('epoch3.1.jpg')
+
+    plt.figure(2)
+    #plt.legend()
+    plt.savefig('time3.1.jpg')
 
 
 def parse_log(file_name):
@@ -37,11 +57,19 @@ def parse_log(file_name):
         f_.write(log_str+ '\n')
     """
     f = open(file_name, 'r')
+    train_ppl = []
+    valid_ppl = []
+    best_val = []
+    time = []
 
     for line in f:
         chunks = line.split('\t')
-        print(chunks[0], chunks[1])
+        train_ppl += [float(chunks[1][11:])]
+        valid_ppl += [float(chunks[2][9:])]
+        best_val += [float(chunks[3][10:])]
+        time += [float(chunks[4][24:])]
 
+    return [train_ppl, valid_ppl, best_val, time]
 
 
 def main():
@@ -52,14 +80,17 @@ def main():
     #            --model=RNN --optimizer=ADAM --initial_lr=0.001 --batch_size=128 --seq_len=35 --hidden_size=512 --num_layers=2 --dp_keep_prob=0.8  --num_epochs=20
     #            --model=RNN --optimizer=ADAM --initial_lr=0.0001 --batch_size=128 --seq_len=35 --hidden_size=512 --num_layers=2 --dp_keep_prob=0.8  --num_epochs=20
     dirs = os.walk('.')
+    results_dict = {}
     for dir in dirs:
         if dir[0].startswith('./Assignment2/RNN'):
             print(dir[0])
             files = dir[2]
             print(files[1])
             filename = dir[0] + '/' + files[1]
-            #print(filename)
-            parse_log(filename)
+            print(filename)
+            results_dict[filename] = parse_log(filename)
+
+    plot(results_dict)
 
 
 
