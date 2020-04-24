@@ -92,17 +92,17 @@ parser = argparse.ArgumentParser(description='PyTorch Penn Treebank Language Mod
 parser.add_argument('--data', type=str, default='data',
                     help='location of the data corpus. We suggest you change the default\
                     here, rather than passing as an argument, to avoid long file paths.')
-parser.add_argument('--model', type=str, default='GRU',
+parser.add_argument('--model', type=str, default='RNN',
                     help='type of recurrent net (RNN, GRU, TRANSFORMER)')
 parser.add_argument('--optimizer', type=str, default='SGD_LR_SCHEDULE',
                     help='optimization algo to use; SGD, SGD_LR_SCHEDULE, ADAM')
 parser.add_argument('--seq_len', type=int, default=35,
                     help='number of timesteps over which BPTT is performed')
-parser.add_argument('--batch_size', type=int, default=20,
+parser.add_argument('--batch_size', type=int, default=1,
                     help='size of one minibatch')
 parser.add_argument('--initial_lr', type=float, default=20.0,
                     help='initial learning rate')
-parser.add_argument('--hidden_size', type=int, default=200,
+parser.add_argument('--hidden_size', type=int, default=512,
                     help='size of hidden layers. IMPORTANT: for the transformer\
                     this must be a multiple of 16.')
 parser.add_argument('--save_best', action='store_true',
@@ -382,7 +382,10 @@ def run_epoch(model, data, is_train=False, lr=1.0):
             inputs = torch.from_numpy(x.astype(np.int64)).transpose(0, 1).contiguous().to(device)#.cuda()
             model.zero_grad()
             hidden = repackage_hidden(hidden)
-            outputs, hidden = model(inputs, hidden)
+            outputs, hidden, all_hids = model(inputs, hidden)
+
+        print("all hids ", len(all_hids))
+        print("hidden from fwd ", all_hids[0].shape)
 
         targets = torch.from_numpy(y.astype(np.int64)).transpose(0, 1).contiguous().to(device)#.cuda()
         tt = torch.squeeze(targets.view(-1, model.batch_size * model.seq_len))
@@ -401,7 +404,15 @@ def run_epoch(model, data, is_train=False, lr=1.0):
         if args.debug:
             print(step, loss)
         if is_train:  # Only update parameters if training
+            for h in all_hids:
+                h.retain_grad()
             loss.backward()
+            #print(torch.gradients(loss, all_hids))
+            for h in all_hids:
+                #print("grad ", h.grad)
+                norm = torch.norm(h.grad.reshape(-1), p=2, dim=0)
+                print(norm.item())
+                #print("grad ", h.grad)
             torch.nn.utils.clip_grad_norm_(model.parameters(), 0.25)
             if args.optimizer == 'ADAM':
                 optimizer.step()
@@ -413,6 +424,7 @@ def run_epoch(model, data, is_train=False, lr=1.0):
                 print('step: '+ str(step) + '\t' \
                     + "loss (sum over all examples' seen this epoch):" + str(costs) + '\t' \
                     + 'speed (wps):' + str(iters * model.batch_size / (time.time() - start_time)))
+        break
     return np.exp(costs / iters), losses
 
 
@@ -422,7 +434,7 @@ def run_epoch(model, data, is_train=False, lr=1.0):
 # RUN MAIN LOOP (TRAIN AND VAL)
 #
 ###############################################################################
-
+"""
 print("\n########## Running Main Loop ##########################")
 train_ppls = []
 train_losses = []
@@ -494,3 +506,64 @@ np.save(lc_path, {'train_ppls':train_ppls,
 # To load these, run
 # >>> x = np.load(lc_path, allow_pickle=True)[()]
 # You will need these values for plotting learning curves
+"""
+"""
+#torch.save(model.state_dict(), os.path.join(args.save_dir, 'best_params.pt'))
+rnn_path = "/Users/andreeadeac/Documents/PhDI/IFT6135/IFT6135H20_practical_assignments/assignment2/Assignment2/RNN_SGD_model=RNN_optimizer=SGD_initial_lr=1.0_batch_size=128_seq_len=35_hidden_size=512_num_layers=2_dp_keep_prob=0.8_num_epochs=20_save_best_0"
+gru_path = "/Users/andreeadeac/Documents/PhDI/IFT6135/IFT6135H20_practical_assignments/assignment2/Assignment2/GRU_ADAM_model=GRU_optimizer=ADAM_initial_lr=0.001_batch_size=128_seq_len=35_hidden_size=512_num_layers=2_dp_keep_prob=0.5_num_epochs=20_save_best_0"
+
+train_path = os.path.join(args.data, "ptb" + ".train.txt")
+word_to_id, id_2_word = _build_vocab(train_path)
+
+
+print("generating")
+
+
+for i in range(10):
+    model.load_state_dict(torch.load(rnn_path + '/best_params.pt', map_location=lambda storage, loc: storage))
+    model.eval()
+    hidden = model.init_hidden()
+    start = np.random.randint(1, 10000)
+    inputs = torch.from_numpy(np.array([start]))
+    print("Input ", id_2_word[start])
+
+    gen_seq = model.generate(inputs, hidden, 35)
+    gen_seq = [gen.item() for gen in gen_seq]
+    words = [id_2_word[word] for word in gen_seq]
+    print("\\begin{spverbatim}")
+    print(' '.join(words))
+    print("\\end{spverbatim}")
+    print()
+
+print("Twice the training sequence length")
+for i in range(10):
+    model.load_state_dict(torch.load(rnn_path + '/best_params.pt', map_location=lambda storage, loc: storage))
+    model.eval()
+    hidden = model.init_hidden()
+    start = np.random.randint(1, 10000)
+    inputs = torch.from_numpy(np.array([start]))
+    print("Input ", id_2_word[start])
+
+    gen_seq = model.generate(inputs, hidden, 70)
+    gen_seq = [gen.item() for gen in gen_seq]
+    words = [id_2_word[word] for word in gen_seq]
+    print("\\begin{spverbatim}")
+    print(' '.join(words))
+    print("\\end{spverbatim}")
+    print()
+"""
+rnn_path = "/Users/andreeadeac/Documents/PhDI/IFT6135/IFT6135H20_practical_assignments/assignment2/Assignment2/RNN_SGD_model=RNN_optimizer=SGD_initial_lr=1.0_batch_size=128_seq_len=35_hidden_size=512_num_layers=2_dp_keep_prob=0.8_num_epochs=20_save_best_0"
+
+gru_path = "/Users/andreeadeac/Documents/PhDI/IFT6135/IFT6135H20_practical_assignments/assignment2/Assignment2/GRU_ADAM_model=GRU_optimizer=ADAM_initial_lr=0.001_batch_size=128_seq_len=35_hidden_size=512_num_layers=2_dp_keep_prob=0.5_num_epochs=20_save_best_0"
+#                                                                                                      --model=GRU --optimizer=ADAM --initial_lr=0.001 --batch_size=128 --seq_len=35 --hidden_size=512 --num_layers=2 --dp_keep_prob=0.5  --num_epochs=20 --save_best
+
+train_path = os.path.join(args.data, "ptb" + ".train.txt")
+word_to_id, id_2_word = _build_vocab(train_path)
+
+model.load_state_dict(torch.load(rnn_path + '/best_params.pt', map_location=lambda storage, loc: storage))
+
+if args.optimizer == 'SGD_LR_SCHEDULE':
+        lr_decay = lr_decay_base ** max(0 - m_flat_lr, 0)
+        lr = lr * lr_decay # decay lr if it is time
+
+train_ppl, train_loss = run_epoch(model, train_data, True, lr)

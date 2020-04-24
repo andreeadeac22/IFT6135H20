@@ -145,8 +145,11 @@ class RNN(nn.Module):
         # Create a tensor to store outputs during the Forward
         logits = torch.zeros(self.seq_len, self.batch_size, self.vocab_size).to(device)
 
+        all_hids = []
+
         # For each time step
         for timestep in range(self.seq_len):
+            hid_t = torch.zeros_like(hidden)
             # Apply dropout on the embedding result
             input_ = self.dropout(embed_out[timestep])
             # For each layer
@@ -154,12 +157,17 @@ class RNN(nn.Module):
                 # Calculate the hidden states
                 # And apply the activation function tanh on it
                 hidden[layer] = torch.tanh(self.layers[layer](torch.cat([input_, hidden[layer]], 1)))
+                hid_t[layer] = hidden[layer].clone()
+                hidden[layer] = nn.Identity()(hid_t[layer])
                 # Apply dropout on this layer, but not for the recurrent units
                 input_ = self.dropout(hidden[layer])
+
             # Store the output of the time step
             logits[timestep] = self.out_layer(input_)
 
-        return logits, hidden
+            all_hids += [hid_t]
+
+        return logits, hidden, all_hids
 
     # Problem 4.2
     def generate(self, inputs, hidden, generated_seq_len):
@@ -184,21 +192,21 @@ class RNN(nn.Module):
                         shape: (generated_seq_len, batch_size)
         """
         # TODO ========================
-        print("calling generated")
+        #print("calling generated")
         if inputs.is_cuda:
             device = inputs.get_device()
         else:
             device = torch.device("cpu")
 
         # Apply the Embedding layer on the input
-        print("inputs " , inputs.shape)
+        #print("inputs " , inputs.shape)
 
         # Create a tensor to store outputs during the Forward
         samples = torch.zeros(generated_seq_len, self.batch_size)
-        print("samples ", samples.shape)
+        #print("samples ", samples.shape)
 
         embed_out = self.embeddings(inputs) # shape (1, batch_size,emb_size)
-        print("embed_out.shape ", embed_out.shape)
+        #print("embed_out.shape ", embed_out.shape)
 
         # For each time step
         for timestep in range(generated_seq_len):
@@ -372,8 +380,12 @@ class GRU(nn.Module): # Implement a stacked GRU RNN
         # Create a tensor to store outputs during the Forward
         logits = torch.zeros(self.seq_len, self.batch_size, self.vocab_size).to(device)
 
+        all_hids = []
+
         # For each time step
         for timestep in range(self.seq_len):
+            hid_t = torch.zeros_like(hidden)
+
             # Apply dropout on the embedding result
             input_ = self.dropout(embed_out[timestep])
             # For each layer
@@ -389,11 +401,17 @@ class GRU(nn.Module): # Implement a stacked GRU RNN
                 h_tilda = torch.tanh(self.h[layer](torch.cat([input_, r_t * hidden[layer].clone()], 1)))
                 #print("h_tilda ", h_tilda.shape)
                 hidden[layer] = z_t * h_tilda + (1.0 - z_t) * hidden[layer].clone()
+
+                hid_t[layer] = hidden[layer].clone()
+                hidden[layer] = nn.Identity()(hid_t[layer])
+
                 # Apply dropout on this layer, but not for the recurrent units
                 input_ = self.dropout(hidden[layer])
             # Store the output of the time step
             logits[timestep] = self.out_layer(input_)
-        return logits, hidden
+            all_hids += [hid_t]
+
+        return logits, hidden, all_hids
 
 
     def generate(self, input, hidden, generated_seq_len):
@@ -428,7 +446,7 @@ class GRU(nn.Module): # Implement a stacked GRU RNN
 
         # Create a tensor to store outputs during the Forward
         samples = torch.zeros(generated_seq_len, self.batch_size)
-        print("samples ", samples.shape)
+        #print("samples ", samples.shape)
 
         # For each time step
         for timestep in range(generated_seq_len):
