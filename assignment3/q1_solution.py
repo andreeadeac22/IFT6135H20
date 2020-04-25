@@ -23,7 +23,8 @@ def log_likelihood_bernoulli(mu, target):
     target = target.view(batch_size, -1)
 
     # log_likelihood_bernoulli
-    return
+    llb = torch.sum(target * torch.log(mu) + (1 - target) * torch.log((1 - mu)), dim=1)
+    return llb
 
 
 def log_likelihood_normal(mu, logvar, z):
@@ -44,7 +45,10 @@ def log_likelihood_normal(mu, logvar, z):
     z = z.view(batch_size, -1)
 
     # log normal
-    return
+    import math
+    lln = torch.sum(- 0.5 * torch.log(2 * torch.Tensor([math.pi])) - 0.5 * logvar - 0.5 /
+                    torch.exp(logvar) * (z - mu) * (z - mu), dim=1)
+    return lln
 
 
 def log_mean_exp(y):
@@ -61,7 +65,10 @@ def log_mean_exp(y):
     sample_size = y.size(1)
 
     # log_mean_exp
-    return
+    maxv, maxi = torch.max(y, dim=1)
+    expy = torch.exp(y - maxv.unsqueeze(1).repeat(1, sample_size))
+    lme = torch.log(1. / sample_size * torch.sum(expy, dim=1)) + maxv
+    return lme
 
 
 def kl_gaussian_gaussian_analytic(mu_q, logvar_q, mu_p, logvar_p):
@@ -84,7 +91,11 @@ def kl_gaussian_gaussian_analytic(mu_q, logvar_q, mu_p, logvar_p):
     logvar_p = logvar_p.view(batch_size, -1)
 
     # kld
-    return
+    logvars = torch.sum(logvar_p, dim=1) - torch.sum(logvar_q, dim=1)
+    trace = torch.sum(torch.exp(logvar_q - logvar_p), dim=1)
+    sum_sq = torch.sum((mu_p - mu_q) * (mu_p - mu_q) / torch.exp(logvar_p), dim=1)
+
+    return 0.5 * (logvars - mu_p.shape[1] + trace + sum_sq)
 
 
 def kl_gaussian_gaussian_mc(mu_q, logvar_q, mu_p, logvar_p, num_samples=1):
@@ -108,5 +119,15 @@ def kl_gaussian_gaussian_mc(mu_q, logvar_q, mu_p, logvar_p, num_samples=1):
     mu_p = mu_p.view(batch_size, -1).unsqueeze(1).expand(batch_size, num_samples, input_size)
     logvar_p = logvar_p.view(batch_size, -1).unsqueeze(1).expand(batch_size, num_samples, input_size)
 
-    # kld
-    return
+    dist_q = torch.distributions.normal.Normal(mu_q, torch.sqrt(torch.exp(logvar_q)))
+    dist_p = torch.distributions.normal.Normal(mu_p, torch.sqrt(torch.exp(logvar_p)))
+
+    # sample Z
+    z = dist_q.rsample()
+
+    # KL div
+    qz = dist_q.log_prob(z)
+    pz = dist_p.log_prob(z)
+
+    kl_loss = torch.mean(qz - pz, dim=(1, 2))
+    return kl_loss
