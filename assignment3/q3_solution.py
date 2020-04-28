@@ -95,6 +95,10 @@ if __name__ == '__main__':
     iters = 0
     batch_num = 0
 
+    if torch.cuda.is_available():
+        generator.cuda()
+        critic.cuda()
+
     for epoch in range(n_epochs):
         for data in train_loader:
             batch_num += 1
