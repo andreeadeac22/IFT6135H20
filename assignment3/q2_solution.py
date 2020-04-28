@@ -21,7 +21,22 @@ def lp_reg(x, y, critic):
     :param critic: (Module) - torch module that you want to regularize.
     :return: (FloatTensor) - shape: (1,) - Lipschitz penalty
     """
-    pass
+    unif = torch.distributions.uniform.Uniform(0., 1.)
+    t = unif.rsample((x.shape[0], 1))
+    #x.data = x.data + gaussian.sample()
+    xhat = x*t + (1.-t)*y
+    xhat.requires_grad = True
+
+    #z = x + torch.rand_like(x)
+    #x.requires_grad = True
+    critic_x = critic(xhat)
+
+    g = torch.autograd.grad(torch.sum(critic_x), xhat, create_graph=True)
+    norm = torch.norm(g[0], p=2, dim=1)
+    one = torch.ones_like(norm)
+    maxi = torch.max(torch.zeros_like(one), norm-one)
+    return torch.mean(maxi*maxi)
+
 
 
 def vf_wasserstein_distance(x, y, critic):
@@ -38,7 +53,7 @@ def vf_wasserstein_distance(x, y, critic):
     :param critic: (Module) - torch module used to compute the Wasserstein distance
     :return: (FloatTensor) - shape: (1,) - Estimate of the Wasserstein distance
     """
-    pass
+    return torch.mean(critic(x)) - torch.mean(critic(y))
 
 
 def vf_squared_hellinger(x, y, critic):
@@ -53,14 +68,97 @@ def vf_squared_hellinger(x, y, critic):
     :param critic: (Module) - torch module used to compute the Squared Hellinger.
     :return: (FloatTensor) - shape: (1,) - Estimate of the Squared Hellinger
     """
-    pass
+    critic_x = critic(x)
+    critic_y = critic(y)
+    one = torch.ones_like(critic_x)
+    t = one - torch.exp(-critic_y)
+    return torch.mean(one - torch.exp(-critic_x)) + torch.mean(- t / (one - t))
 
 
 if __name__ == '__main__':
     # Example of usage of the code provided for answering Q2.5 as well as recommended hyper parameters.
-    model = q2_model.Critic(2)
-    optim = torch.optim.SGD(model.parameters(), lr=1e-3)
-    sampler1 = iter(q2_sampler.distribution1(0, 512))
-    theta = 0
-    sampler2 = iter(q2_sampler.distribution1(theta, 512))
-    lambda_reg_lp = 50 # Recommended hyper parameters for the lipschitz regularizer.
+    lambda_reg_lp = 50  # Recommended hyper parameters for the lipschitz regularizer.
+
+    sh = []
+    w = []
+    wlp = []
+
+    thetas = [theta * 0.1 for theta in range(0, 21)]
+
+    for theta1 in thetas:
+        modelsh = q2_model.Critic(2)
+        #modelw = q2_model.Critic(2)
+        modelwlp = q2_model.Critic(2)
+
+        optimsh = torch.optim.SGD(modelsh.parameters(), lr=1e-3)
+        #optimw = torch.optim.SGD(modelw.parameters(), lr=1e-3)
+        optimwlp = torch.optim.SGD(modelwlp.parameters(), lr=1e-3)
+
+        sampler1 = iter(q2_sampler.distribution1(0, 512))
+        sampler2 = iter(q2_sampler.distribution1(theta1, 512))
+
+        for i in range(500):
+            x = torch.Tensor(next(sampler1))
+            y = torch.Tensor(next(sampler2))
+
+            modelsh.zero_grad()
+            #modelw.zero_grad()
+            modelwlp.zero_grad()
+
+            sq_he_loss = - vf_squared_hellinger(x, y, modelsh)
+            # w_loss = - vf_wasserstein_distance(x, y, modelw)
+            wass = vf_wasserstein_distance(x, y, modelwlp)
+            wlp_loss = - wass + lambda_reg_lp * lp_reg(x, y, modelwlp)
+
+            sq_he_loss.backward()
+            #w_loss.backward()
+            wlp_loss.backward()
+
+            optimsh.step()
+            #optimw.step()
+            optimwlp.step()
+
+        sh += [-sq_he_loss.item()]
+        print("sh ", sh)
+        #w += [-w_loss.item()]
+        #print("w ", w)
+        wlp += [wass.item()]
+        print("wlp ", wlp)
+
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    sns.set()
+
+    plt.figure(1)
+    plt.xlabel(r'$\theta$')
+    plt.ylabel('estimated Squared Hellinger distance')
+    plt.title('Estimated Squared Hellinger distance for different ' + r'$\theta$')
+
+    #plt.figure(2)
+    #plt.xlabel(r'$\theta$')
+    #plt.ylabel('estimated Earth-Mover distance')
+    #plt.title('Estimated Earth-Mover distance for different ' + r'$\theta$')
+
+    plt.figure(2)
+    plt.xlabel(r'$\theta$')
+    plt.ylabel('estimated Earth-Mover distance')
+    plt.title('Estimated Earth-Mover distance for different ' + r'$\theta$')
+
+
+    plt.figure(1)
+    plt.plot(thetas, sh)
+
+    #plt.figure(2)
+    #plt.plot(thetas, w)
+
+    plt.figure(2)
+    plt.plot(thetas, wlp)
+
+    plt.figure(1)
+    plt.savefig('sh.jpg')
+
+    #plt.figure(2)
+    #plt.savefig('w.jpg')
+
+    plt.figure(2)
+    plt.savefig('wlp.jpg')
